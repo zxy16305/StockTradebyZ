@@ -39,5 +39,8 @@ RUN chmod 0644 /etc/cron.d/python-job
 # 应用crontab
 RUN crontab /etc/cron.d/python-job
 
+RUN echo "">/app/logs/test.log
+
 # 启动命令（替代start.sh）
-CMD service cron start && tail -f /app/logs/cron.log
+#CMD service cron start && tail -f /app/logs/cron.log
+CMD service cron start && tail -f /app/logs/test.log
