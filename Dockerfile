@@ -1,14 +1,15 @@
 FROM python:3.12-slim
 
-# 关键优化：更换为国内Debian镜像源（加速apt操作）
-RUN sed -i s@/deb.debian.org/@/mirrors.aliyun.com/@g /etc/apt/sources.list && \
-    sed -i s@/security.debian.org/@/mirrors.aliyun.com/debian-security/@g /etc/apt/sources.list
+# 解决sources.list不存在的问题：直接创建阿里云源配置
+RUN echo "deb http://mirrors.aliyun.com/debian/ bookworm main non-free contrib" > /etc/apt/sources.list && \
+    echo "deb http://mirrors.aliyun.com/debian-security/ bookworm-security main" >> /etc/apt/sources.list && \
+    echo "deb http://mirrors.aliyun.com/debian/ bookworm-updates main non-free contrib" >> /etc/apt/sources.list && \
+    echo "deb http://mirrors.aliyun.com/debian/ bookworm-backports main non-free contrib" >> /etc/apt/sources.list
 
-# 安装cron（添加--no-install-recommends减少无关依赖）
-# 清理缓存，减小镜像体积
+# 安装cron（精简模式）
 RUN apt-get update && \
     apt-get install -y --no-install-recommends cron && \
-    rm -rf /var/lib/apt/lists/* \
+    rm -rf /var/lib/apt/lists/*
 
 # 设置工作目录
 WORKDIR /app
