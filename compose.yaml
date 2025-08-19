@@ -1,0 +1,15 @@
+version: '3.1'
+services:
+  stockz:
+    build:
+      context: .  # 当前目录作为构建上下文
+      dockerfile: Dockerfile  # 使用当前目录下的 Dockerfile
+
+    restart: unless-stopped  # 除非手动停止，否则总是重启容器
+    container_name: stockz  # 容器名称
+    image: stockz:latest  # 构建的镜像名称和标签
+    volumes:
+      - "./logs:/app/logs"
+      - "./data:/app/data"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

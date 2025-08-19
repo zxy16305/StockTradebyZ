@@ -14,6 +14,7 @@ from typing import List, Optional
 
 import akshare as ak
 import pandas as pd
+import requests
 import tushare as ts
 from mootdx.quotes import Quotes
 from tqdm import tqdm
@@ -21,7 +22,8 @@ from tqdm import tqdm
 warnings.filterwarnings("ignore")
 
 # --------------------------- 全局日志配置 --------------------------- #
-LOG_FILE = Path("fetch.log")
+LOG_FILE = Path("./logs/fetch.log")
+LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(filename)s:%(lineno)d %(message)s",
@@ -150,6 +152,8 @@ def _get_kline_tushare(code: str, start: str, end: str, adjust: str) -> pd.DataF
 def _get_kline_akshare(code: str, start: str, end: str, adjust: str) -> pd.DataFrame:
     for attempt in range(1, 4):
         try:
+            # 默认延迟 100ms~500ms
+            time.sleep(random.uniform(0.1, 0.5))
             df = ak.stock_zh_a_hist(
                 symbol=code,
                 period="daily",
@@ -178,6 +182,49 @@ def _get_kline_akshare(code: str, start: str, end: str, adjust: str) -> pd.DataF
     df = df[["date", "open", "close", "high", "low", "volume"]]
     return df.sort_values("date").reset_index(drop=True)
 
+# ---------- AKTools 工具函数 ---------- #
+
+def _get_kline_aktools(code: str, start: str, end: str, adjust: str) -> pd.DataFrame:
+    url = "http://host.docker.internal:8000/api/public/stock_zh_a_hist"
+    params = {
+        "symbol": code,
+        "period": "daily",
+        "start_date": start,
+        "end_date": end,
+        "adjust": adjust,
+    }
+    for attempt in range(1, 4):
+        try:
+            # 默认延迟 100ms~500ms
+            time.sleep(random.uniform(2, 4))
+
+            resp = requests.get(url, params=params, timeout=10)
+            resp.raise_for_status()
+            data = resp.json()
+
+            df = pd.DataFrame(data)
+            break
+        except Exception as e:
+            logger.warning("Aktools 拉取 %s 失败(%d/3): %s", code, attempt, e)
+            # 带退避+抖动
+            time.sleep(random.uniform(1, 2) * attempt + random.uniform(0.1, 0.5))
+    else:
+        return pd.DataFrame()
+
+    if df is None or df.empty:
+        return pd.DataFrame()
+
+    df = (
+        df[list(COLUMN_MAP_HIST_AK)]
+        .rename(columns=COLUMN_MAP_HIST_AK)
+        .assign(date=lambda x: pd.to_datetime(x["date"]))
+    )
+    df[[c for c in df.columns if c != "date"]] = df[[c for c in df.columns if c != "date"]].apply(
+        pd.to_numeric, errors="coerce"
+    )
+    df = df[["date", "open", "close", "high", "low", "volume"]]
+    return df.sort_values("date").reset_index(drop=True)
+
 # ---------- Mootdx 工具函数 ---------- #
 
 def _get_kline_mootdx(code: str, start: str, end: str, adjust: str, freq_code: int) -> pd.DataFrame:    
@@ -185,6 +232,8 @@ def _get_kline_mootdx(code: str, start: str, end: str, adjust: str, freq_code: i
     freq = _FREQ_MAP.get(freq_code, "day")
     client = Quotes.factory(market="std")
     try:
+        # 默认延迟 100ms~500ms
+        time.sleep(random.uniform(0.5, 2))
         df = client.bars(symbol=symbol, frequency=freq, adjust=adjust or None)
     except Exception as e:
         logger.warning("Mootdx 拉取 %s 失败: %s", code, e)
@@ -216,7 +265,9 @@ def get_kline(
         return _get_kline_tushare(code, start, end, adjust)
     elif datasource == "akshare":
         return _get_kline_akshare(code, start, end, adjust)
-    elif datasource == "mootdx":        
+    elif datasource == "aktools":
+        return _get_kline_aktools(code, start, end, adjust)
+    elif datasource == "mootdx":
         return _get_kline_mootdx(code, start, end, adjust, freq_code)
     else:
         raise ValueError("datasource 仅支持 'tushare', 'akshare' 或 'mootdx'")
@@ -288,9 +339,91 @@ def fetch_one(
 
 # ---------- 主入口 ---------- #
 
+def run(
+        datasource="tushare",
+        frequency=4,
+        exclude_gem=True,
+        min_mktcap=5e9,
+        max_mktcap=float("+inf"),
+        start="20190101",
+        end="today",
+        out="./data",
+        workers=3,
+        ts_token=None  # 允许外部传入token，更灵活
+):
+    """
+    直接调用抓取K线的核心函数
+
+    参数与命令行参数一致，增加了ts_token参数方便外部传入
+    """
+    # ---------- Token 处理 ---------- #
+    if datasource == "tushare":
+        import tushare as ts
+        # 优先使用传入的token，否则使用默认
+        ts_token = ts_token or " "  # 这里可以保留默认token
+        ts.set_token(ts_token)
+        global pro
+        pro = ts.pro_api()
+
+    # ---------- 日期解析 ---------- #
+    start_date = dt.date.today().strftime("%Y%m%d") if start.lower() == "today" else start
+    end_date = dt.date.today().strftime("%Y%m%d") if end.lower() == "today" else end
+
+    out_dir = Path(out)
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    # ---------- 市值快照 & 股票池 ---------- #
+    mktcap_df = _get_mktcap_ak()
+
+    codes_from_filter = get_constituents(
+        min_mktcap,
+        max_mktcap,
+        exclude_gem,
+        mktcap_df=mktcap_df,
+    )
+    # 加上本地已有的股票，确保旧数据也能更新
+    local_codes = [p.stem for p in out_dir.glob("*.csv")]
+    codes = sorted(set(codes_from_filter) | set(local_codes))
+
+    if not codes:
+        logger.error("筛选结果为空，请调整参数！")
+        return False  # 用返回值表示执行状态
+
+    logger.info(
+        "开始抓取 %d 支股票 | 数据源:%s | 频率:%s | 日期:%s → %s",
+        len(codes),
+        datasource,
+        _FREQ_MAP[frequency],
+        start_date,
+        end_date,
+    )
+
+    # ---------- 多线程抓取 ---------- #
+    with ThreadPoolExecutor(max_workers=workers) as executor:
+        futures = [
+            executor.submit(
+                fetch_one,
+                code,
+                start_date,
+                end_date,
+                out_dir,
+                True,
+                datasource,
+                frequency,
+            )
+            for code in codes
+        ]
+        for _ in tqdm(as_completed(futures), total=len(futures), desc="下载进度"):
+            pass
+
+    logger.info("全部任务完成，数据已保存至 %s", out_dir.resolve())
+    return True  # 执行成功
+
+
+# ---------- 命令行入口（保持兼容） ---------- #
 def main():
     parser = argparse.ArgumentParser(description="按市值筛选 A 股并抓取历史 K 线")
-    parser.add_argument("--datasource", choices=["tushare", "akshare", "mootdx"], default="tushare", help="历史 K 线数据源")
+    parser.add_argument("--datasource", choices=["tushare", "akshare", "mootdx", "aktools"], default="tushare", help="历史 K 线数据源")
     parser.add_argument("--frequency", type=int, choices=list(_FREQ_MAP.keys()), default=4, help="K线频率编码，参见说明")
     parser.add_argument("--exclude-gem", default=True, help="True则排除创业板/科创板/北交所")
     parser.add_argument("--min-mktcap", type=float, default=5e9, help="最小总市值（含），单位：元")
@@ -299,68 +432,22 @@ def main():
     parser.add_argument("--end", default="today", help="结束日期 YYYYMMDD 或 'today'")
     parser.add_argument("--out", default="./data", help="输出目录")
     parser.add_argument("--workers", type=int, default=3, help="并发线程数")
+    parser.add_argument("--ts-token", help="tushare的token，优先级高于内部默认")  # 新增命令行参数
     args = parser.parse_args()
 
-    # ---------- Token 处理 ---------- #
-    if args.datasource == "tushare":
-        ts_token = " "  # 在这里补充token
-        ts.set_token(ts_token)
-        global pro
-        pro = ts.pro_api()
-
-    # ---------- 日期解析 ---------- #
-    start = dt.date.today().strftime("%Y%m%d") if args.start.lower() == "today" else args.start
-    end = dt.date.today().strftime("%Y%m%d") if args.end.lower() == "today" else args.end
-
-    out_dir = Path(args.out)
-    out_dir.mkdir(parents=True, exist_ok=True)
-
-    # ---------- 市值快照 & 股票池 ---------- #
-    mktcap_df = _get_mktcap_ak()    
-
-    codes_from_filter = get_constituents(
-        args.min_mktcap,
-        args.max_mktcap,
-        args.exclude_gem,
-        mktcap_df=mktcap_df,
-    )    
-    # 加上本地已有的股票，确保旧数据也能更新
-    local_codes = [p.stem for p in out_dir.glob("*.csv")]
-    codes = sorted(set(codes_from_filter) | set(local_codes))
-
-    if not codes:
-        logger.error("筛选结果为空，请调整参数！")
-        sys.exit(1)
-
-    logger.info(
-        "开始抓取 %d 支股票 | 数据源:%s | 频率:%s | 日期:%s → %s",
-        len(codes),
-        args.datasource,
-        _FREQ_MAP[args.frequency],
-        start,
-        end,
+    # 调用核心函数，保持命令行兼容性
+    run(
+        datasource=args.datasource,
+        frequency=args.frequency,
+        exclude_gem=args.exclude_gem,
+        min_mktcap=args.min_mktcap,
+        max_mktcap=args.max_mktcap,
+        start=args.start,
+        end=args.end,
+        out=args.out,
+        workers=args.workers,
+        ts_token=args.ts_token  # 传入命令行的token
     )
-
-    # ---------- 多线程抓取 ---------- #
-    with ThreadPoolExecutor(max_workers=args.workers) as executor:
-        futures = [
-            executor.submit(
-                fetch_one,
-                code,
-                start,
-                end,
-                out_dir,
-                True,
-                args.datasource,
-                args.frequency,
-            )
-            for code in codes
-        ]
-        for _ in tqdm(as_completed(futures), total=len(futures), desc="下载进度"):
-            pass
-
-    logger.info("全部任务完成，数据已保存至 %s", out_dir.resolve())
-
 
 if __name__ == "__main__":
     main()
