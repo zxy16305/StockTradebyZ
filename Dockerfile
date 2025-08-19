@@ -1,14 +1,19 @@
 FROM python:3.12-slim
 
 # 解决sources.list不存在的问题：直接创建阿里云源配置
-RUN echo "deb http://mirrors.aliyun.com/debian/ bookworm main non-free contrib" > /etc/apt/sources.list && \
-    echo "deb http://mirrors.aliyun.com/debian-security/ bookworm-security main" >> /etc/apt/sources.list && \
+# 清理原有源配置，仅保留阿里云源（避免多源冲突）
+# 创建阿里云源配置（传统sources.list格式）
+# 合并为单RUN指令，减少镜像层并安装cron
+# 清理缓存，减小镜像体积
+RUN rm -f /etc/apt/sources.list && \
+    rm -rf /etc/apt/sources.list.d/* && \
+    echo "deb http://mirrors.aliyun.com/debian/ bookworm main non-free contrib" > /etc/apt/sources.list && \
+    echo "deb http://mirrors.aliyun.com/debian-security/ bookworm-security main non-free contrib" >> /etc/apt/sources.list && \
     echo "deb http://mirrors.aliyun.com/debian/ bookworm-updates main non-free contrib" >> /etc/apt/sources.list && \
-    echo "deb http://mirrors.aliyun.com/debian/ bookworm-backports main non-free contrib" >> /etc/apt/sources.list
-
-# 安装cron（精简模式）
-RUN apt-get update && \
+    echo "deb http://mirrors.aliyun.com/debian/ bookworm-backports main non-free contrib" >> /etc/apt/sources.list && \
+    apt-get update && \
     apt-get install -y --no-install-recommends cron && \
+    apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
 # 设置工作目录
