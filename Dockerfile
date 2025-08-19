@@ -27,8 +27,7 @@ RUN pip install --no-cache-dir -r requirements.txt -i http://mirrors.aliyun.com/
 COPY . /app/
 
 # 创建日志目录
-RUN mkdir -p /app/logs && touch /app/logs/cron.log &&  \
-    chmod 777 /app/logs /app/logs/cron.log
+RUN mkdir -p /app/logs
 
 # 添加crontab任务: 每天15:30执行
 RUN echo "30 15 * * * python3 /app/do_select_and_upload.py >> /app/logs/cron.log 2>&1" > /etc/cron.d/python-job
@@ -39,8 +38,5 @@ RUN chmod 0644 /etc/cron.d/python-job
 # 应用crontab
 RUN crontab /etc/cron.d/python-job
 
-RUN echo "">/app/logs/test.log
-
 # 启动命令（替代start.sh）
-#CMD service cron start && tail -f /app/logs/cron.log
-CMD service cron start && tail -f /app/logs/test.log
+CMD touch /app/logs/cron.log && service cron start && tail -f /app/logs/cron.log
