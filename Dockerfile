@@ -1,25 +1,22 @@
 FROM python:3.12-slim
 
-# 解决sources.list不存在的问题：直接创建阿里云源配置
-# 清理原有源配置，仅保留阿里云源（避免多源冲突）
-# 创建阿里云源配置（传统sources.list格式）
-# 合并为单RUN指令，减少镜像层并安装cron
-# 清理缓存，减小镜像体积
+# 关键：设置环境变量禁用debconf交互式前端
+ENV DEBIAN_FRONTEND=noninteractive
+ENV DEBCONF_NONINTERACTIVE_SEEN=true
+
+# 配置阿里云源并安装cron
+# 安装tzdata（时区数据）和cron，此时不会出现交互提示
+# 配置时区为上海（可选，解决时间差问题）
 RUN rm -f /etc/apt/sources.list && \
     rm -rf /etc/apt/sources.list.d/* && \
     echo "deb http://mirrors.aliyun.com/debian/ bookworm main non-free contrib" > /etc/apt/sources.list && \
     echo "deb http://mirrors.aliyun.com/debian-security/ bookworm-security main non-free contrib" >> /etc/apt/sources.list && \
-    echo "deb http://mirrors.aliyun.com/debian/ bookworm-updates main non-free contrib" >> /etc/apt/sources.list && \
-    echo "deb http://mirrors.aliyun.com/debian/ bookworm-backports main non-free contrib" >> /etc/apt/sources.list && \
     apt-get update && \
-    apt-get install -y --no-install-recommends cron && \
+    apt-get install -y --no-install-recommends tzdata cron && \
+    ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime && \
+    echo "Asia/Shanghai" > /etc/timezone && \
     apt-get clean && \
-    rm -rf /var/lib/apt/lists/* \
-
-# 时区
-RUN apt - get update && apt - get install - y tzdata && \
-    ln - sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime && \
-    echo "Asia/Shanghai" > /etc/timezone \
+    rm -rf /var/lib/apt/lists/*
 
 # 设置工作目录
 WORKDIR /app
