@@ -20,6 +20,7 @@ def main():
         start="20200101",
         end="today",
         out="./data",
+        exclude_gem=False,
         workers=1,
         ts_token="your_actual_token"  # 可选，根据数据源决定
     )
