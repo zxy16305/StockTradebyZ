@@ -301,7 +301,7 @@ def fetch_one(
         try:
             existing = pd.read_csv(csv_path, parse_dates=["date"])
             last_date = existing["date"].max()
-            if last_date.date() > pd.to_datetime(end, format="%Y%m%d").date():
+            if last_date.date() >= pd.to_datetime(end, format="%Y%m%d").date():
                 logger.debug("%s 已是最新，无需更新", code)
                 return
             start = last_date.strftime("%Y%m%d")
@@ -367,7 +367,14 @@ def run(
 
     # ---------- 日期解析 ---------- #
     start_date = dt.date.today().strftime("%Y%m%d") if start.lower() == "today" else start
-    end_date = dt.date.today().strftime("%Y%m%d") if end.lower() == "today" else end
+    if end.lower() == "today":
+        now = dt.datetime.now()
+        if now.hour < 15:
+            end_date = (now - dt.timedelta(days=1)).strftime("%Y%m%d")
+        else:
+            end_date = now.strftime("%Y%m%d")
+    else:
+        end_date = end
 
     out_dir = Path(out)
     out_dir.mkdir(parents=True, exist_ok=True)
