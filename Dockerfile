@@ -41,4 +41,4 @@ RUN chmod 0644 /etc/cron.d/python-job
 RUN crontab /etc/cron.d/python-job
 
 # 启动命令（替代start.sh）
-CMD touch /app/logs/cron.log && service cron start && tail -f /app/logs/cron.log
+CMD touch /app/logs/cron.log && service cron start && python3 /app/tradebot.py >> /app/logs/bot.log 2>&1
