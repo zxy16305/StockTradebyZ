@@ -23,7 +23,7 @@ def main():
         end="today",
         out="./data",
         exclude_gem=False,
-        workers=2,
+        workers=1,
         ts_token=config['tushareToken']  # 可选，根据数据源决定
     )
     # success = fetch_kline.run(
