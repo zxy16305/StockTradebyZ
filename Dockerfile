@@ -32,8 +32,8 @@ COPY . /app/
 RUN mkdir -p /app/logs
 
 # 添加crontab任务: 每天15:30执行
-RUN #echo "30 15 * * * cd /app && /usr/local/bin/python3 /app/do_select_and_upload.py >> /app/logs/cron.log 2>&1" > /etc/cron.d/python-job
-RUN echo "17 21 * * * cd /app && /usr/local/bin/python3 /app/do_select_and_upload.py >> /app/logs/cron.log 2>&1" > /etc/cron.d/python-job
+RUN echo "30 15 * * * cd /app && /usr/local/bin/python3 /app/do_select_and_upload.py >> /app/logs/cron.log 2>&1" > /etc/cron.d/python-job
+# RUN echo "17 21 * * * cd /app && /usr/local/bin/python3 /app/do_select_and_upload.py >> /app/logs/cron.log 2>&1" > /etc/cron.d/python-job
 
 # 给予执行权限
 RUN chmod 0644 /etc/cron.d/python-job
