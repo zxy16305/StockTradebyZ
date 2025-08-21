@@ -196,7 +196,7 @@ def _get_kline_aktools(code: str, start: str, end: str, adjust: str) -> pd.DataF
     for attempt in range(1, 4):
         try:
             # 默认延迟 100ms~500ms
-            time.sleep(random.uniform(2, 4))
+            time.sleep(random.uniform(1, 3))
 
             resp = requests.get(url, params=params, timeout=10)
             resp.raise_for_status()
