@@ -3,6 +3,8 @@ import select_stock
 import requests
 import json
 
+from config import Config
+
 
 def main():
     """
@@ -62,7 +64,7 @@ def upload_results(results, trade_date):
     :return:
     """
     # 服务器地址
-    host = "http://host.docker.internal:9966"
+    host = f"http://{Config.MS_HOST}"
     # host = "http://localhost:8080"
 
     # 遍历所有策略的结果

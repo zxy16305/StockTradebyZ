@@ -6,6 +6,8 @@ from datetime import datetime, timedelta
 import botpy
 from botpy.message import Message, GroupMessage
 
+from config import Config
+
 _log = logging.getLogger()
 
 class MyClient(botpy.Client):
@@ -24,7 +26,7 @@ class MyClient(botpy.Client):
         
         # Request data from the API
         # url = f"http://localhost:8080/api/select/date/{target_date}"
-        url = f"http://host.docker.internal:9966/api/select/date/{target_date}"
+        url = f"http://{Config.MS_HOST}/api/select/date/{target_date}"
 
         async with aiohttp.ClientSession() as session:
             async with session.get(url) as response:
@@ -50,7 +52,5 @@ class MyClient(botpy.Client):
 
 
 if __name__ == '__main__':
-    with open('bot_config.json', 'r') as f:
-        config = json.load(f)
     client = MyClient(intents=botpy.Intents(public_messages=True))
-    client.run(appid=config['appId'], secret=config['appSecret'])
+    client.run(appid=Config.QQ_APP_ID,  secret=Config.QQ_APP_SECRET)

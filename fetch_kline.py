@@ -19,6 +19,8 @@ import tushare as ts
 from mootdx.quotes import Quotes
 from tqdm import tqdm
 
+from config import Config
+
 warnings.filterwarnings("ignore")
 
 # --------------------------- 全局日志配置 --------------------------- #
@@ -185,7 +187,7 @@ def _get_kline_akshare(code: str, start: str, end: str, adjust: str) -> pd.DataF
 # ---------- AKTools 工具函数 ---------- #
 
 def _get_kline_aktools(code: str, start: str, end: str, adjust: str) -> pd.DataFrame:
-    url = "http://host.docker.internal:8000/api/public/stock_zh_a_hist"
+    url = f"http://{Config.AK_TOOLS_HOST}/api/public/stock_zh_a_hist"
     params = {
         "symbol": code,
         "period": "daily",
