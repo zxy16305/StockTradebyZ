@@ -18,16 +18,28 @@ class MyClient(botpy.Client):
 
     async def on_group_at_message_create(self, message: GroupMessage):
         # Determine whether to request today's or yesterday's data based on message content
+        await self.fetch_chat(message)
+
+    async def fetch_chat(self, message):
+        # Request data from the API
+        url = f"http://{Config.MS_HOST}/agent/chatquery"
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url, data=message.content) as response:
+                if response.status == 200:
+                    data = await response.text()
+                    # Summarize the data
+                    await message.reply(content=data)
+                else:
+                    await message.reply(content="获取数据失败")
+
+    async def fetch_local(self, message):
         if "前一天" in message.content or "昨天" in message.content:
             target_date = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
         else:
             target_date = datetime.now().strftime('%Y-%m-%d')
-
-        
         # Request data from the API
         # url = f"http://localhost:8080/api/select/date/{target_date}"
         url = f"http://{Config.MS_HOST}/api/select/date/{target_date}"
-
         async with aiohttp.ClientSession() as session:
             async with session.get(url) as response:
                 if response.status == 200:
