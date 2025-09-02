@@ -16,6 +16,7 @@ import akshare as ak
 import pandas as pd
 import requests
 import tushare as ts
+import gm.api as gmApi
 from mootdx.quotes import Quotes
 from tqdm import tqdm
 
@@ -227,6 +228,43 @@ def _get_kline_aktools(code: str, start: str, end: str, adjust: str) -> pd.DataF
     df = df[["date", "open", "close", "high", "low", "volume"]]
     return df.sort_values("date").reset_index(drop=True)
 
+# ---------- 掘金工具函数 ---------- #
+def _to_juejin_code(code: str) -> str:
+    return f"SHSE.{code}" if code.startswith(("60", "68", "9")) else f"SZSE.{code}"
+
+
+_juejin_adjust_flag = {
+    "qfq": 1,
+    "hfq": 2,
+}
+
+def _get_kline_juejin(code: str, start: str, end: str, adjust: str) -> pd.DataFrame:
+    # 不支持北交所
+    if code.startswith(("92", "8")):
+        return pd.DataFrame()
+
+    juejin_code = _to_juejin_code(code)
+    adj_flag = _juejin_adjust_flag.get(adjust, 0)
+
+    start_ts = pd.to_datetime(start, format="%Y%m%d")
+    end_ts = pd.to_datetime(end, format="%Y%m%d")
+
+    # 默认延迟 50ms~100ms
+    time.sleep(random.uniform(0.05, 0.1))
+
+    history = gmApi.history(symbol=juejin_code, start_time=start_ts, end_time=end_ts,
+                            df=True, adjust=adj_flag, frequency='1d')
+
+    if history is None or history.empty:
+        return pd.DataFrame()
+
+    history2 = (history[['bob', 'open', 'high', 'low', 'close', 'volume']]
+                .rename(columns={'bob': 'date'})
+                .assign(date=lambda x: pd.to_datetime(x["date"]).dt.tz_localize(None))
+                .sort_values("date").reset_index(drop=True))
+
+    return history2
+
 # ---------- Mootdx 工具函数 ---------- #
 
 def _get_kline_mootdx(code: str, start: str, end: str, adjust: str, freq_code: int) -> pd.DataFrame:    
@@ -271,6 +309,8 @@ def get_kline(
         return _get_kline_aktools(code, start, end, adjust)
     elif datasource == "mootdx":
         return _get_kline_mootdx(code, start, end, adjust, freq_code)
+    elif datasource == "juejin":
+        return _get_kline_juejin(code, start, end, adjust)
     else:
         raise ValueError("datasource 仅支持 'tushare', 'akshare' 或 'mootdx'")
 
@@ -313,6 +353,7 @@ def fetch_one(
     for attempt in range(1, 4):
         try:            
             new_df = get_kline(code, start, end, "qfq", datasource, freq_code)
+            # new_df = get_kline(code, start, end, "hfq", datasource, freq_code)
             if new_df.empty:
                 logger.debug("%s 无新数据", code)
                 break
@@ -366,6 +407,8 @@ def run(
         ts.set_token(ts_token)
         global pro
         pro = ts.pro_api()
+    elif datasource == "juejin":
+        gmApi.set_token(ts_token)
 
     # ---------- 日期解析 ---------- #
     start_date = dt.date.today().strftime("%Y%m%d") if start.lower() == "today" else start
@@ -432,7 +475,7 @@ def run(
 # ---------- 命令行入口（保持兼容） ---------- #
 def main():
     parser = argparse.ArgumentParser(description="按市值筛选 A 股并抓取历史 K 线")
-    parser.add_argument("--datasource", choices=["tushare", "akshare", "mootdx", "aktools"], default="tushare", help="历史 K 线数据源")
+    parser.add_argument("--datasource", choices=["tushare", "akshare", "mootdx", "aktools", "juejin"], default="tushare", help="历史 K 线数据源")
     parser.add_argument("--frequency", type=int, choices=list(_FREQ_MAP.keys()), default=4, help="K线频率编码，参见说明")
     parser.add_argument("--exclude-gem", default=True, help="True则排除创业板/科创板/北交所")
     parser.add_argument("--min-mktcap", type=float, default=5e9, help="最小总市值（含），单位：元")

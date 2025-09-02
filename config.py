@@ -16,6 +16,8 @@ class Config:
     AK_TOOLS_HOST = os.getenv('AK_TOOLS_HOST')
     # ms 接口地址
     MS_HOST = os.getenv('MS_HOST')
+    # 掘金 token
+    JUEJIN_TOKEN = os.getenv('JUEJIN_TOKEN')
 
 
 def get_config():
