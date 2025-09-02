@@ -15,30 +15,30 @@ def main():
     4. 上传符合条件的股票到数据库
     :return:
     """
-    # success = fetch_kline.run(
-    #     datasource="aktools",
-    #     frequency=4,
-    #     min_mktcap=5e9,
-    #     max_mktcap=float("inf"),
-    #     start="20200101",
-    #     end="today",
-    #     out="./data",
-    #     exclude_gem=False,
-    #     workers=1,
-    #     ts_token="your_actual_token"  # 可选，根据数据源决定
-    # )
     success = fetch_kline.run(
-        datasource="juejin",
+        datasource="aktools",
         frequency=4,
         min_mktcap=5e9,
         max_mktcap=float("inf"),
-        start="20220101",
+        start="20200101",
         end="today",
         out="./data",
         exclude_gem=False,
         workers=1,
-        ts_token=Config.JUEJIN_TOKEN  # 可选，根据数据源决定
+        ts_token="your_actual_token"  # 可选，根据数据源决定
     )
+    # success = fetch_kline.run(
+    #     datasource="juejin",
+    #     frequency=4,
+    #     min_mktcap=5e9,
+    #     max_mktcap=float("inf"),
+    #     start="20220101",
+    #     end="today",
+    #     out="./data",
+    #     exclude_gem=False,
+    #     workers=1,
+    #     ts_token=Config.JUEJIN_TOKEN  # 可选，根据数据源决定
+    # )
 
     if not success:
         print("数据获取失败")
