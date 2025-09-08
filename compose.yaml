@@ -11,5 +11,6 @@ services:
     volumes:
       - "./logs:/app/logs"
       - "./data:/app/data"
+      - "./data2:/app/data2"
     extra_hosts:
       - "host.docker.internal:host-gateway"

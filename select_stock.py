@@ -10,6 +10,8 @@ from typing import Any, Dict, Iterable, List
 
 import pandas as pd
 
+import fetch_kline
+
 # ---------- 日志 ----------
 logging.basicConfig(
     level=logging.INFO,
@@ -81,7 +83,8 @@ def run(
         data_dir="./data",
         config="./configs.json",
         date=None,
-        tickers="all"
+        tickers="all",
+        min_mktcap=5e9
 ):
     """
     执行选股逻辑并返回结果
@@ -101,11 +104,19 @@ def run(
     if not data_dir.exists():
         raise FileNotFoundError(f"数据目录 {data_dir} 不存在")
 
+    df = fetch_kline._get_mktcap_ak()
+
     codes = (
         [f.stem for f in data_dir.glob("*.csv")]
         if tickers.lower() == "all"
         else [c.strip() for c in tickers.split(",") if c.strip()]
     )
+
+    if min_mktcap is not None:
+        # 只保留市值 >= min_mktcap 的股票
+        mktcap_dict = df.set_index("code")["mktcap"].to_dict()
+        codes = [c for c in codes if mktcap_dict.get(c, 0) >= min_mktcap]
+
     if not codes:
         raise ValueError("股票池为空！")
 
@@ -147,6 +158,7 @@ def main():
     p.add_argument("--config", default="./configs.json", help="Selector 配置文件")
     p.add_argument("--date", help="交易日 YYYY-MM-DD；缺省=数据最新日期")
     p.add_argument("--tickers", default="all", help="'all' 或逗号分隔股票代码列表")
+    p.add_argument("--min-mktcap", type=float, default=5e9, help="最小总市值（含），单位：元")
     args = p.parse_args()
 
     try:
@@ -155,7 +167,8 @@ def main():
             data_dir=args.data_dir,
             config=args.config,
             date=args.date,
-            tickers=args.tickers
+            tickers=args.tickers,
+            min_mktcap=args.min_mktcap
         )
 
         # 处理日期显示

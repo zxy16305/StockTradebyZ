@@ -1,4 +1,5 @@
 import fetch_kline
+import fetch_kline_by_date
 import select_stock
 import requests
 import json
@@ -15,37 +16,31 @@ def main():
     4. 上传符合条件的股票到数据库
     :return:
     """
-    success = fetch_kline.run(
-        datasource="aktools",
-        frequency=4,
-        min_mktcap=5e9,
-        max_mktcap=float("inf"),
-        start="20200101",
-        end="today",
-        out="./data",
-        exclude_gem=False,
-        workers=1,
-        ts_token="your_actual_token"  # 可选，根据数据源决定
-    )
-    # success = fetch_kline.run(
-    #     datasource="juejin",
+    # out = "./data"
+# success = fetch_kline.run(
+    #     datasource="aktools",
     #     frequency=4,
     #     min_mktcap=5e9,
     #     max_mktcap=float("inf"),
-    #     start="20220101",
+    #     start="20200101",
     #     end="today",
     #     out="./data",
     #     exclude_gem=False,
     #     workers=1,
-    #     ts_token=Config.JUEJIN_TOKEN  # 可选，根据数据源决定
+    #     ts_token="your_actual_token"  # 可选，根据数据源决定
     # )
+    out = "./data2"
+    success = fetch_kline_by_date.run(start='20250101',
+                                      end='today',
+                                      ts_token=Config.JUEJIN_TOKEN,
+                                      out=out)
 
     if not success:
         print("数据获取失败")
         return
 
     results, trade_date = select_stock.run(
-        data_dir="./data",
+        data_dir=out,
         config="./configs.json",
         # 可选参数：指定日期或股票列表
         # date="2025-08-18",
