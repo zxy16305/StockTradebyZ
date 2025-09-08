@@ -32,7 +32,7 @@ def main():
     out = "./data2"
     success = fetch_kline_by_date.run(start='20250101',
                                       end='today',
-                                      ts_token=Config.JUEJIN_TOKEN,
+                                      ts_token=Config.TUSHARE_TOKEN,
                                       out=out)
 
     if not success:
