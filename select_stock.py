@@ -84,7 +84,8 @@ def run(
         config="./configs.json",
         date=None,
         tickers="all",
-        min_mktcap=5e9
+        min_mktcap=5e9,
+        extra_data: pd.DataFrame = None,  # 附加数据
 ):
     """
     执行选股逻辑并返回结果
@@ -94,6 +95,9 @@ def run(
         config: 配置文件路径
         date: 交易日（YYYY-MM-DD），None则使用最新日期
         tickers: 股票代码列表或"all"
+        min_mktcap: 最小市值过滤
+        extra_data: 可选，附加行情数据，DataFrame 格式，
+            必须包含列: ["code","date","open","high","low","close","volume"]
 
     返回:
         dict: 选股结果，结构为 {alias: picks_list, ...}
@@ -120,7 +124,32 @@ def run(
     if not codes:
         raise ValueError("股票池为空！")
 
+    # 读取历史数据
     data = load_data(data_dir, codes)
+
+    # 如果传入 extra_data，就合并到 data
+    if extra_data is not None:
+        required_cols = {"code","date","open","high","low","close","volume"}
+        if not required_cols.issubset(extra_data.columns):
+            raise ValueError(f"extra_data 必须包含列: {required_cols}")
+
+        df_extra = extra_data.copy()
+        df_extra["date"] = pd.to_datetime(df_extra["date"])
+
+        for code, extra in df_extra.groupby("code"):
+            extra = extra.sort_values("date").reset_index(drop=True)
+            if code in data:
+                df_hist = data[code].copy()
+                df_hist["date"] = pd.to_datetime(df_hist["date"])
+                # 只保留 extra 里不在历史里的日期
+                new_extra = extra[~extra["date"].isin(df_hist["date"])]
+                if not new_extra.empty:
+                    merged = pd.concat([df_hist, new_extra], ignore_index=True)
+                    merged = merged.sort_values("date").reset_index(drop=True)
+                    data[code] = merged
+            else:
+                data[code] = extra
+
     if not data:
         raise ValueError("未能加载任何行情数据")
 
@@ -128,7 +157,7 @@ def run(
     trade_date = (
         pd.to_datetime(date)
         if date
-        else max(df["date"].max() for df in data.values())
+        else max(df_["date"].max() for df_ in data.values())
     )
 
     # --- 加载 Selector 配置 ---
