@@ -31,12 +31,8 @@ COPY . /app/
 # 创建日志目录
 RUN mkdir -p /app/logs
 
-# 添加crontab任务: 每天14:30执行
-RUN echo "30 14 * * * cd /app && /usr/local/bin/python3 /app/do_select_and_upload_intraday.py >> /app/logs/cron.log 2>&1" > /etc/cron.d/python-job
-
-# 添加crontab任务: 每天16:05执行
-RUN echo "5 16 * * * cd /app && /usr/local/bin/python3 /app/do_select_and_upload.py >> /app/logs/cron.log 2>&1" > /etc/cron.d/python-job
-# RUN echo "17 21 * * * cd /app && /usr/local/bin/python3 /app/do_select_and_upload.py >> /app/logs/cron.log 2>&1" > /etc/cron.d/python-job
+# 拷贝定时任务配置
+COPY cronjobs /etc/cron.d/python-job
 
 # 给予执行权限
 RUN chmod 0644 /etc/cron.d/python-job
