@@ -1,4 +1,4 @@
 # 每天14:30执行
-47 18 * * * cd /app && /usr/local/bin/python3 /app/do_select_and_upload_intraday.py >> /app/logs/cron.log 2>&1
+25 14 * * * cd /app && /usr/local/bin/python3 /app/do_select_and_upload_intraday.py >> /app/logs/cron.log 2>&1
 # 每天16:05执行
 5 16 * * * cd /app && /usr/local/bin/python3 /app/do_select_and_upload.py >> /app/logs/cron.log 2>&1
