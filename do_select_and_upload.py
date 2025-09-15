@@ -71,6 +71,7 @@ def upload_results(results, trade_date):
         data = {
             "date": trade_date.strftime("%Y-%m-%d"),
             "strategy": strategy,
+            "isIntraday": False,
             "stockSelectionResult": json.dumps(stock_list)
         }
         
