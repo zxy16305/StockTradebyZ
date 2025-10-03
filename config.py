@@ -18,6 +18,9 @@ class Config:
     MS_HOST = os.getenv('MS_HOST')
     # 掘金 token
     JUEJIN_TOKEN = os.getenv('JUEJIN_TOKEN')
+    # Growatt 中国账号
+    GROWATT_CN_USERNAME = os.getenv('GROWATT_CN_USERNAME')
+    GROWATT_CN_PASSWORD = os.getenv('GROWATT_CN_PASSWORD')
 
 
 def get_config():

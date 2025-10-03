@@ -7,3 +7,4 @@ scipy==1.14.1
 qq-botpy==1.2.1
 python_dotenv==1.1.1
 gm==3.0.178
+growatt-api==0.1.4
